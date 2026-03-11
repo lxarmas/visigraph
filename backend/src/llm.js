@@ -1,55 +1,47 @@
-import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 
-let openai;
+let groq;
 
 function getClient() {
-  if (!openai) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!groq) {
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
-  return openai;
+  return groq;
 }
 
-/**
- * Call the LLM with the question, then parse brand mentions + sentiment.
- * Returns: { answerText, brandResults[] }
- */
 export async function analyzeQuestion(question, brands) {
   const brandList = brands.join(', ');
 
-  const systemPrompt = `You are an expert market analyst specializing in AI visibility and brand perception.
-When asked a question, provide a thoughtful, informative answer as if you were a knowledgeable consultant.
-Your answers should be realistic and reflect actual market conditions.`;
+  const response = await getClient().chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 1200,
+    messages: [
+      {
+        role: 'system',
+        content: `You are an expert market analyst specializing in AI visibility and brand perception.
+When asked a question, provide a thoughtful, informative answer as if you were a knowledgeable consultant.`
+      },
+      {
+        role: 'user',
+        content: `Question: "${question}"
 
-  const userPrompt = `Question: "${question}"
+Please answer this question naturally in 2-4 paragraphs.
 
-Please answer this question naturally and informatively in 2-4 paragraphs.
-
-Then, after your answer, add a special analysis section using EXACTLY this format:
+Then add this analysis section using EXACTLY this format:
 
 ---BRAND_ANALYSIS---
 ${brands.map(b => `${b}: [MENTIONED or NOT_MENTIONED] | [positive/negative/neutral] | [brief context or "not applicable"]`).join('\n')}
 ---END_ANALYSIS---
 
-Brands to analyze: ${brandList}`;
-
-  const response = await getClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.7,
-    max_tokens: 1200
+Brands to analyze: ${brandList}`
+      }
+    ]
   });
 
   const fullText = response.choices[0].message.content;
-
-  // Split answer from analysis block
   const parts = fullText.split('---BRAND_ANALYSIS---');
   const answerText = parts[0].trim();
   const analysisBlock = parts[1]?.split('---END_ANALYSIS---')[0]?.trim() || '';
-
-  // Parse brand results
   const brandResults = parseBrandAnalysis(analysisBlock, brands);
 
   return { answerText, brandResults };
@@ -91,10 +83,6 @@ function parseBrandAnalysis(analysisBlock, brands) {
   return results;
 }
 
-/**
- * Generate a visibility score for a brand (0–10 scale)
- * Based on mention + sentiment
- */
 export function computeVisibilityScore(brandResults) {
   return brandResults.map(r => {
     let score = 0;
