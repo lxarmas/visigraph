@@ -3,15 +3,15 @@ import { useState, useEffect, useRef } from 'react';
 const API = '/api';
 
 const SENTIMENT_COLORS = {
-  positive: '#4ade80',
-  neutral: '#facc15',
-  negative: '#f87171',
+  positive: '#16a34a',
+  neutral: '#92400e',
+  negative: '#dc2626',
 };
 
-const SENTIMENT_BG = {
-  positive: 'rgba(74,222,128,0.12)',
-  neutral: 'rgba(250,204,21,0.12)',
-  negative: 'rgba(248,113,113,0.12)',
+const SENTIMENT_LIGHT = {
+  positive: '#f0fdf4',
+  neutral: '#fffbeb',
+  negative: '#fef2f2',
 };
 
 export default function App() {
@@ -24,11 +24,21 @@ export default function App() {
   const [error, setError] = useState('');
   const [dashboard, setDashboard] = useState([]);
   const [dashLoading, setDashLoading] = useState(false);
+  const [hoveredBtn, setHoveredBtn] = useState(false);
+  const [hoveredAdd, setHoveredAdd] = useState(false);
+  const [animateIn, setAnimateIn] = useState(false);
   const brandInputRef = useRef(null);
 
   useEffect(() => {
     if (view === 'dashboard') fetchDashboard();
   }, [view]);
+
+  useEffect(() => {
+    if (result) {
+      setAnimateIn(false);
+      setTimeout(() => setAnimateIn(true), 30);
+    }
+  }, [result]);
 
   async function fetchDashboard() {
     setDashLoading(true);
@@ -36,11 +46,8 @@ export default function App() {
       const r = await fetch(`${API}/dashboard`);
       const data = await r.json();
       setDashboard(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDashLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setDashLoading(false); }
   }
 
   function addBrand() {
@@ -58,7 +65,7 @@ export default function App() {
 
   async function handleAnalyze() {
     if (!question.trim() || brands.length === 0) {
-      setError('Please enter a question and at least one brand.');
+      setError('Enter a question and at least one brand to continue.');
       return;
     }
     setError('');
@@ -70,12 +77,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.trim(), brands }),
       });
-      if (!r.ok) {
-        const err = await r.json();
-        throw new Error(err.error || 'Request failed');
-      }
-      const data = await r.json();
-      setResult(data);
+      if (!r.ok) throw new Error((await r.json()).error || 'Request failed');
+      setResult(await r.json());
     } catch (e) {
       setError(e.message);
     } finally {
@@ -83,416 +86,629 @@ export default function App() {
     }
   }
 
-  function scoreBar(score) {
-    const pct = (score / 10) * 100;
-    const color = score >= 7 ? '#4ade80' : score >= 4 ? '#facc15' : score >= 1 ? '#fb923c' : '#333';
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#1a1a1a', overflow: 'hidden' }}>
-          <div style={{
-            width: `${pct}%`, height: '100%', borderRadius: 3,
-            background: color, transition: 'width 0.8s cubic-bezier(.4,0,.2,1)'
-          }} />
-        </div>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#666', minWidth: 28 }}>
-          {score}/10
-        </span>
-      </div>
-    );
-  }
+  const sorted = result ? [...result.brandResults].sort((a, b) => b.score - a.score) : [];
 
   return (
-    <div style={styles.root}>
-      <div style={styles.gridBg} />
+    <div style={s.root}>
 
-      {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.logoArea}>
-          <div style={styles.logoDot} />
-          <span style={styles.logoText}>Visigraph</span>
-          <span style={styles.logoBadge}>BETA</span>
+      {/* Top bar */}
+      <header style={s.header}>
+        <div style={s.headerInner}>
+          <div style={s.logoGroup}>
+            <div style={s.logoMark}>V</div>
+            <span style={s.logoName}>visigraph</span>
+          </div>
+          <nav style={s.nav}>
+            {['analyze', 'dashboard'].map(v => (
+              <button
+                key={v}
+                style={{ ...s.navBtn, ...(view === v ? s.navBtnActive : {}) }}
+                onClick={() => setView(v)}
+              >
+                {v}
+              </button>
+            ))}
+          </nav>
         </div>
-        <nav style={styles.nav}>
-          <button style={{ ...styles.navBtn, ...(view === 'analyze' ? styles.navActive : {}) }} onClick={() => setView('analyze')}>
-            Analyze
-          </button>
-          <button style={{ ...styles.navBtn, ...(view === 'dashboard' ? styles.navActive : {}) }} onClick={() => setView('dashboard')}>
-            Dashboard
-          </button>
-        </nav>
       </header>
 
-      <main style={styles.main}>
+      {/* Thin accent line */}
+      <div style={s.accentLine} />
+
+      <main style={s.main}>
         {view === 'analyze' && (
-          <div style={styles.analyzeLayout}>
-
-            {/* Left Panel */}
-            <div style={styles.inputPanel}>
-
-              {/* How it works */}
-              <div style={styles.howItWorks}>
-                <div style={styles.howTitle}>HOW IT WORKS</div>
-                <div style={styles.howStep}>
-                  <span style={styles.howNum}>1</span>
-                  <span>Ask any market or category question</span>
-                </div>
-                <div style={styles.howStep}>
-                  <span style={styles.howNum}>2</span>
-                  <span>Add up to 6 brands you want to track</span>
-                </div>
-                <div style={styles.howStep}>
-                  <span style={styles.howNum}>3</span>
-                  <span>We score each brand 0–10 based on how the AI mentions them</span>
-                </div>
-                <div style={styles.tipBox}>
-                  <div style={styles.tipTitle}>✓ GOOD QUESTIONS</div>
-                  <div style={styles.tipText}>
-                    "What are the best running shoe brands?"<br />
-                    "Which CRM do you recommend for sales teams?"<br />
-                    "What project management tools do you suggest?"<br />
-                    "Which cloud provider is best for startups?"
-                  </div>
-                  <div style={{ ...styles.tipTitle, color: '#f87171', marginTop: 10 }}>✗ AVOID</div>
-                  <div style={styles.tipText}>
-                    Vague questions where brand names won't appear naturally
-                  </div>
-                </div>
-              </div>
-
-              {/* Question */}
-              <div style={styles.sectionLabel}>YOUR QUESTION</div>
-              <textarea
-                style={styles.textarea}
-                placeholder="e.g. What are the best CRM tools for B2B sales teams?"
-                value={question}
-                onChange={e => setQuestion(e.target.value)}
-                rows={3}
-              />
-
-              {/* Brands */}
-              <div style={{ ...styles.sectionLabel, marginTop: 20 }}>BRANDS TO COMPARE <span style={{ color: '#333' }}>({brands.length}/6)</span></div>
-              <div style={styles.brandRow}>
-                <input
-                  ref={brandInputRef}
-                  style={styles.brandInput}
-                  placeholder="Type a brand and press Enter or +"
-                  value={brandInput}
-                  onChange={e => setBrandInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addBrand()}
-                />
-                <button style={styles.addBtn} onClick={addBrand} disabled={brands.length >= 6}>+</button>
-              </div>
-
-              <div style={styles.chipRow}>
-                {brands.map((b, i) => (
-                  <span key={b} style={styles.chip}>
-                    <span style={styles.chipNum}>{i + 1}</span>
-                    {b}
-                    <button style={styles.chipX} onClick={() => removeBrand(b)}>×</button>
-                  </span>
-                ))}
-                {brands.length === 0 && (
-                  <span style={{ color: '#333', fontSize: 12, fontFamily: 'DM Mono, monospace' }}>
-                    No brands added yet — add up to 6
-                  </span>
-                )}
-              </div>
-
-              {error && <div style={styles.error}>{error}</div>}
-
-              <button
-                style={{ ...styles.analyzeBtn, ...(loading ? styles.analyzeBtnLoading : {}) }}
-                onClick={handleAnalyze}
-                disabled={loading}
-              >
-                {loading ? (
-                  <span style={styles.spinnerWrap}>
-                    <span style={styles.spinner} />
-                    Analyzing...
-                  </span>
-                ) : '→ Run Visibility Analysis'}
-              </button>
+          <>
+            {/* Page title */}
+            <div style={s.pageTitle}>
+              <h1 style={s.h1}>Brand Visibility Analysis</h1>
+              <p style={s.subtitle}>
+                Ask any market question. Track up to six brands. See who the AI recommends — and who gets overlooked.
+              </p>
             </div>
 
-            {/* Right Panel */}
-            <div style={styles.resultPanel}>
-              {!result && !loading && (
-                <div style={styles.emptyState}>
-                  <div style={styles.emptyIcon}>◎</div>
-                  <div style={styles.emptyText}>
-                    Results will appear here.<br />
-                    Each brand gets a visibility score from 0 to 10.
-                  </div>
-                  <div style={styles.scoreLegend}>
-                    <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: '#4ade80' }} />7–10 Mentioned positively</div>
-                    <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: '#facc15' }} />4–6 Mentioned neutrally</div>
-                    <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: '#fb923c' }} />1–3 Mentioned negatively</div>
-                    <div style={styles.legendItem}><span style={{ ...styles.legendDot, background: '#333' }} />0 Not mentioned</div>
-                  </div>
+            <div style={s.twoCol}>
+
+              {/* ── LEFT COLUMN ── */}
+              <div style={s.leftCol}>
+
+                {/* Question */}
+                <div style={s.fieldGroup}>
+                  <label style={s.label}>YOUR QUESTION</label>
+                  <textarea
+                    style={s.textarea}
+                    placeholder="e.g. What are the best CRM tools for B2B sales teams?"
+                    value={question}
+                    onChange={e => setQuestion(e.target.value)}
+                    rows={4}
+                  />
+                  <p style={s.hint}>Ask a specific category question where brand names will appear naturally.</p>
                 </div>
-              )}
 
-              {loading && (
-                <div style={styles.emptyState}>
-                  <div style={{ fontSize: 32, color: '#333', animation: 'spin 1s linear infinite' }}>◌</div>
-                  <div style={styles.emptyText}>Querying AI and scoring brands...</div>
-                </div>
-              )}
-
-              {result && (
-                <div>
-                  <div style={styles.resultQuestion}>"{result.question}"</div>
-
-                  {/* Scores */}
-                  <div style={styles.sectionLabel}>VISIBILITY SCORES</div>
-                  <div style={styles.scoresGrid}>
-                    {result.brandResults
-                      .sort((a, b) => b.score - a.score)
-                      .map((br, i) => (
-                        <div key={br.brand} style={{
-                          ...styles.scoreCard,
-                          borderColor: br.mentioned ? SENTIMENT_COLORS[br.sentiment] + '44' : '#1a1a1a',
-                          background: br.mentioned ? SENTIMENT_BG[br.sentiment] : '#0d0d0d'
-                        }}>
-                          <div style={styles.scoreCardTop}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={styles.rankNum}>#{i + 1}</span>
-                              <span style={styles.brandName}>{br.brand}</span>
-                            </div>
-                            <span style={{
-                              ...styles.sentimentTag,
-                              background: br.mentioned ? SENTIMENT_COLORS[br.sentiment] + '22' : '#1a1a1a',
-                              color: br.mentioned ? SENTIMENT_COLORS[br.sentiment] : '#444',
-                            }}>
-                              {br.mentioned ? br.sentiment : 'absent'}
-                            </span>
-                          </div>
-                          {scoreBar(br.score)}
-                          {br.context && (
-                            <div style={styles.context}>"{br.context}"</div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Answer */}
-                  <div style={{ ...styles.sectionLabel, marginTop: 28 }}>AI ANSWER</div>
-                  <div style={styles.answerBox}>
-                    {result.answerText.split('\n').filter(Boolean).map((para, i) => (
-                      <p key={i} style={{ margin: '0 0 12px', lineHeight: 1.8 }}>{para}</p>
+                {/* Examples */}
+                <div style={s.fieldGroup}>
+                  <label style={s.label}>EXAMPLES</label>
+                  <div style={s.examples}>
+                    {[
+                      'What are the best running shoe brands?',
+                      'Which CRM is best for B2B sales teams?',
+                      'Top cloud storage solutions for enterprises?',
+                      'Best project management tools for remote teams?',
+                    ].map((ex, i) => (
+                      <div
+                        key={i}
+                        style={s.exampleRow}
+                        onClick={() => setQuestion(ex)}
+                      >
+                        <span style={s.exampleArrow}>→</span>
+                        <span style={s.exampleText}>{ex}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
-              )}
+
+                {/* Scoring guide */}
+                <div style={s.scoringGuide}>
+                  <label style={s.label}>HOW SCORING WORKS</label>
+                  <div style={s.scoringRows}>
+                    {[
+                      { score: '10', desc: 'Mentioned with positive sentiment', color: '#16a34a' },
+                      { score: '7',  desc: 'Mentioned with neutral sentiment',  color: '#92400e' },
+                      { score: '1',  desc: 'Mentioned with negative sentiment', color: '#dc2626' },
+                      { score: '0',  desc: 'Not mentioned at all',              color: '#d1d5db' },
+                    ].map(({ score, desc, color }) => (
+                      <div key={score} style={s.scoringRow}>
+                        <span style={{ ...s.scoreChip, color, borderColor: color + '44', background: color + '0a' }}>{score}</span>
+                        <span style={s.scoringDesc}>{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* ── RIGHT COLUMN ── */}
+              <div style={s.rightCol}>
+
+                {/* Brand input */}
+                <div style={s.fieldGroup}>
+                  <label style={s.label}>
+                    BRANDS TO COMPARE
+                    <span style={s.counter}>{brands.length} / 6</span>
+                  </label>
+
+                  <div style={s.brandInputWrap}>
+                    <input
+                      ref={brandInputRef}
+                      style={s.brandInput}
+                      placeholder="Type a brand name and press Enter"
+                      value={brandInput}
+                      onChange={e => setBrandInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addBrand()}
+                      disabled={brands.length >= 6}
+                    />
+                    <button
+                      style={{
+                        ...s.addBtn,
+                        background: hoveredAdd ? '#111' : '#1a1a1a',
+                        opacity: brands.length >= 6 ? 0.3 : 1,
+                      }}
+                      onMouseEnter={() => setHoveredAdd(true)}
+                      onMouseLeave={() => setHoveredAdd(false)}
+                      onClick={addBrand}
+                      disabled={brands.length >= 6}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Brand chips */}
+                  <div style={s.chips}>
+                    {brands.length === 0 && (
+                      <span style={s.noChips}>No brands added yet</span>
+                    )}
+                    {brands.map((b, i) => (
+                      <div key={b} style={s.chip}>
+                        <span style={s.chipNum}>{i + 1}</span>
+                        <span style={s.chipName}>{b}</span>
+                        <button style={s.chipDel} onClick={() => removeBrand(b)}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div style={s.divider} />
+
+                {error && <p style={s.error}>{error}</p>}
+
+                {/* Run button */}
+                <button
+                  style={{
+                    ...s.runBtn,
+                    background: loading ? '#f3f4f6' : hoveredBtn ? '#111' : '#1a1a1a',
+                    color: loading ? '#9ca3af' : '#fff',
+                    transform: hoveredBtn && !loading ? 'translateY(-2px)' : 'translateY(0)',
+                    boxShadow: hoveredBtn && !loading ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)',
+                  }}
+                  onMouseEnter={() => setHoveredBtn(true)}
+                  onMouseLeave={() => setHoveredBtn(false)}
+                  onClick={handleAnalyze}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span style={s.loadingRow}>
+                      <span style={s.spinner} />
+                      Analyzing...
+                    </span>
+                  ) : 'Run Analysis →'}
+                </button>
+
+                {/* Empty state */}
+                {!result && !loading && (
+                  <div style={s.empty}>
+                    <div style={s.emptyCircle} />
+                    <p style={s.emptyLabel}>Results will appear here</p>
+                  </div>
+                )}
+
+                {/* Results */}
+                {result && (
+                  <div style={s.results}>
+                    <div style={s.resultsTitle}>
+                      <span style={s.label}>RESULTS</span>
+                      <p style={s.resultsQ}>"{result.question}"</p>
+                    </div>
+
+                    {sorted.map((br, i) => (
+                      <div
+                        key={br.brand}
+                        style={{
+                          ...s.resultRow,
+                          animation: animateIn ? `fadeSlide 0.35s ease ${i * 0.07}s both` : 'none',
+                          background: br.mentioned ? SENTIMENT_LIGHT[br.sentiment] : '#fafafa',
+                          borderColor: br.mentioned ? SENTIMENT_COLORS[br.sentiment] + '22' : '#e5e7eb',
+                        }}
+                      >
+                        <div style={s.resultLeft}>
+                          <span style={s.resultRank}>#{i + 1}</span>
+                          <div>
+                            <div style={s.resultBrand}>{br.brand}</div>
+                            {br.context && <div style={s.resultCtx}>"{br.context}"</div>}
+                          </div>
+                        </div>
+                        <div style={s.resultRight}>
+                          <div style={{
+                            ...s.scorePill,
+                            color: br.mentioned ? SENTIMENT_COLORS[br.sentiment] : '#9ca3af',
+                            background: br.mentioned ? SENTIMENT_COLORS[br.sentiment] + '12' : '#f3f4f6',
+                            border: `1px solid ${br.mentioned ? SENTIMENT_COLORS[br.sentiment] + '33' : '#e5e7eb'}`,
+                          }}>
+                            {br.score}<span style={s.scoreDenom}>/10</span>
+                          </div>
+                          <span style={{
+                            ...s.badge,
+                            color: br.mentioned ? SENTIMENT_COLORS[br.sentiment] : '#9ca3af',
+                          }}>
+                            {br.mentioned ? br.sentiment : 'absent'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Full answer */}
+                    <details style={s.answerDetails}>
+                      <summary style={s.answerSummary}>Full AI answer</summary>
+                      <div style={s.answerBody}>
+                        {result.answerText.split('\n').filter(Boolean).map((p, i) => (
+                          <p key={i} style={{ marginBottom: 14, lineHeight: 1.8 }}>{p}</p>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+              </div>
             </div>
-          </div>
+          </>
         )}
 
+        {/* Dashboard */}
         {view === 'dashboard' && (
-          <div style={styles.dashLayout}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div style={s.dashWrap}>
+            <div style={s.dashTop}>
               <div>
-                <div style={styles.sectionLabel}>ANALYSIS HISTORY</div>
-                <div style={{ color: '#444', fontSize: 13, fontFamily: 'DM Mono, monospace' }}>
-                  {dashboard.length} queries stored
-                </div>
+                <h1 style={s.h1}>History</h1>
+                <p style={s.subtitle}>{dashboard.length} analyses stored in Neo4j</p>
               </div>
-              <button style={styles.refreshBtn} onClick={fetchDashboard} disabled={dashLoading}>
-                {dashLoading ? '...' : '↺ Refresh'}
+              <button style={s.refreshBtn} onClick={fetchDashboard}>
+                {dashLoading ? 'Loading...' : '↺ Refresh'}
               </button>
             </div>
 
-            {dashLoading && <div style={styles.emptyState}><div style={styles.emptyText}>Loading...</div></div>}
-
             {!dashLoading && dashboard.length === 0 && (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyIcon}>◎</div>
-                <div style={styles.emptyText}>No analyses yet. Run your first query!</div>
+              <div style={s.empty}>
+                <div style={s.emptyCircle} />
+                <p style={s.emptyLabel}>No analyses yet — run your first query</p>
               </div>
             )}
 
-            {!dashLoading && dashboard.map(entry => (
-              <div key={entry.answerId} style={styles.dashCard}>
-                <div style={styles.dashCardHeader}>
-                  <span style={styles.dashQuestion}>{entry.questionText}</span>
-                  <span style={styles.dashDate}>
-                    {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '—'}
-                  </span>
-                </div>
-                <div style={styles.dashBrandRow}>
-                  {entry.brands
-                    .sort((a, b) => (b.mentioned ? 1 : 0) - (a.mentioned ? 1 : 0))
-                    .map(b => (
-                      <div key={b.name} style={styles.dashBrandChip}>
+            <div style={s.dashList}>
+              {dashboard.map(entry => (
+                <div key={entry.answerId} style={s.dashCard}>
+                  <div style={s.dashCardTop}>
+                    <p style={s.dashQ}>{entry.questionText}</p>
+                    <span style={s.dashDate}>
+                      {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </span>
+                  </div>
+                  <div style={s.dashChips}>
+                    {entry.brands.sort((a, b) => (b.mentioned ? 1 : 0) - (a.mentioned ? 1 : 0)).map(b => (
+                      <div key={b.name} style={{
+                        ...s.dashChip,
+                        background: b.mentioned ? SENTIMENT_LIGHT[b.sentiment] : '#f9fafb',
+                        borderColor: b.mentioned ? SENTIMENT_COLORS[b.sentiment] + '33' : '#e5e7eb',
+                      }}>
                         <span style={{
-                          width: 7, height: 7, borderRadius: '50%',
-                          background: b.mentioned ? SENTIMENT_COLORS[b.sentiment] : '#2a2a2a',
-                          display: 'inline-block', marginRight: 6, flexShrink: 0
+                          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                          background: b.mentioned ? SENTIMENT_COLORS[b.sentiment] : '#d1d5db',
                         }} />
-                        <span style={{ color: b.mentioned ? '#ccc' : '#444' }}>{b.name}</span>
+                        <span style={{ color: b.mentioned ? '#111' : '#9ca3af', fontSize: 12 }}>{b.name}</span>
                       </div>
                     ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </main>
 
       <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #0a0a0a; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        textarea::placeholder { color: #333; }
-        input::placeholder { color: #333; }
-        textarea:focus, input:focus { outline: none; border-color: #c8f545 !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; }
+        body { background: #fff; -webkit-font-smoothing: antialiased; }
+        textarea, input { font-family: inherit; }
+        textarea:focus, input:focus { outline: none; border-color: #111 !important; }
+        textarea::placeholder, input::placeholder { color: #c4c4c4; }
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+        @keyframes fadeSlide {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .example-row:hover span:last-child { color: #111 !important; }
+        .example-row:hover span:first-child { color: #111 !important; }
       `}</style>
     </div>
   );
 }
 
-const styles = {
+const s = {
   root: {
-    minHeight: '100vh', background: '#0a0a0a',
-    color: '#e8e8e8', fontFamily: 'Fraunces, Georgia, serif',
-    position: 'relative',
+    minHeight: '100vh',
+    background: '#ffffff',
+    color: '#111',
+    fontFamily: "'Inter', -apple-system, sans-serif",
   },
-  gridBg: {
-    position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-    backgroundImage: `linear-gradient(rgba(200,245,69,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(200,245,69,0.025) 1px, transparent 1px)`,
-    backgroundSize: '48px 48px',
-  },
+
   header: {
-    position: 'relative', zIndex: 10,
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '20px 36px', borderBottom: '1px solid #141414',
+    borderBottom: '1px solid #f0f0f0',
+    background: '#fff',
+    position: 'sticky', top: 0, zIndex: 100,
   },
-  logoArea: { display: 'flex', alignItems: 'center', gap: 10 },
-  logoDot: { width: 10, height: 10, borderRadius: '50%', background: '#c8f545', boxShadow: '0 0 12px #c8f54566' },
-  logoText: { fontFamily: 'Fraunces, Georgia, serif', fontSize: 20, fontWeight: 300, color: '#e8e8e8' },
-  logoBadge: {
-    fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '0.15em',
-    background: '#141414', color: '#444', padding: '2px 6px', borderRadius: 2, border: '1px solid #1e1e1e',
+  headerInner: {
+    maxWidth: 1200, margin: '0 auto',
+    padding: '0 48px',
+    height: 64,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
-  nav: { display: 'flex', gap: 4 },
-  navBtn: {
-    fontFamily: 'DM Mono, monospace', fontSize: 12, letterSpacing: '0.08em',
-    background: 'transparent', border: '1px solid #1e1e1e', color: '#555',
-    padding: '7px 16px', borderRadius: 4, cursor: 'pointer',
-  },
-  navActive: { background: '#141414', color: '#c8f545', borderColor: '#c8f54522' },
-  main: { position: 'relative', zIndex: 5, padding: '32px 36px', maxWidth: 1200, margin: '0 auto' },
-  analyzeLayout: { display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24 },
-  inputPanel: { background: '#0d0d0d', border: '1px solid #181818', borderRadius: 10, padding: 24, height: 'fit-content' },
-
-  howItWorks: { marginBottom: 24, padding: '16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 8 },
-  howTitle: { fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '0.15em', color: '#555', marginBottom: 12 },
-  howStep: {
-    display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8,
-    fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#666', lineHeight: 1.5,
-  },
-  howNum: {
-    background: '#c8f545', color: '#0a0a0a', width: 18, height: 18, borderRadius: '50%',
+  logoGroup: { display: 'flex', alignItems: 'center', gap: 10 },
+  logoMark: {
+    width: 32, height: 32, borderRadius: 8,
+    background: '#111', color: '#fff',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1,
+    fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em',
   },
-  tipBox: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #1a1a1a' },
-  tipTitle: { fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '0.1em', color: '#4ade80', marginBottom: 6 },
-  tipText: { fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#444', lineHeight: 1.8 },
+  logoName: {
+    fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', color: '#111',
+  },
 
-  sectionLabel: { fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: 10 },
-  textarea: {
-    width: '100%', background: '#111', border: '1px solid #1e1e1e',
-    borderRadius: 6, color: '#ddd', fontFamily: 'Fraunces, Georgia, serif',
-    fontSize: 14, lineHeight: 1.6, padding: '12px 14px', resize: 'vertical',
+  nav: { display: 'flex', gap: 2 },
+  navBtn: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13, fontWeight: 500,
+    background: 'transparent', border: 'none',
+    color: '#9ca3af', padding: '6px 14px', borderRadius: 6,
+    cursor: 'pointer', letterSpacing: '-0.01em',
+    transition: 'all 0.15s ease',
   },
-  brandRow: { display: 'flex', gap: 8, marginBottom: 10 },
+  navBtnActive: {
+    color: '#111', background: '#f3f4f6',
+  },
+
+  accentLine: {
+    height: 2,
+    background: 'linear-gradient(90deg, #111 0%, #6b7280 50%, transparent 100%)',
+    opacity: 0.06,
+  },
+
+  main: {
+    maxWidth: 1200, margin: '0 auto',
+    padding: '64px 48px 120px',
+  },
+
+  pageTitle: { marginBottom: 56 },
+  h1: {
+    fontFamily: "'Instrument Serif', Georgia, serif",
+    fontSize: 42, fontWeight: 400, color: '#111',
+    letterSpacing: '-0.02em', lineHeight: 1.1,
+    marginBottom: 14,
+  },
+  subtitle: {
+    fontSize: 15, color: '#6b7280', lineHeight: 1.6,
+    fontWeight: 400, maxWidth: 520,
+  },
+
+  twoCol: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 80,
+    alignItems: 'start',
+  },
+
+  leftCol: { display: 'flex', flexDirection: 'column', gap: 40 },
+  rightCol: { display: 'flex', flexDirection: 'column', gap: 28 },
+
+  fieldGroup: { display: 'flex', flexDirection: 'column', gap: 10 },
+  label: {
+    fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
+    color: '#9ca3af', display: 'flex', justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  counter: { fontWeight: 400, color: '#d1d5db' },
+
+  textarea: {
+    width: '100%',
+    background: '#fafafa',
+    border: '1px solid #e5e7eb',
+    borderRadius: 10, color: '#111',
+    fontSize: 15, lineHeight: 1.6,
+    padding: '16px 18px', resize: 'none',
+    transition: 'border-color 0.15s ease',
+    fontFamily: "'Inter', sans-serif",
+  },
+  hint: {
+    fontSize: 12, color: '#9ca3af', lineHeight: 1.5,
+  },
+
+  examples: {
+    display: 'flex', flexDirection: 'column', gap: 2,
+  },
+  exampleRow: {
+    display: 'flex', alignItems: 'flex-start', gap: 10,
+    padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+    transition: 'background 0.15s ease',
+    background: 'transparent',
+  },
+  exampleArrow: {
+    fontSize: 12, color: '#d1d5db', flexShrink: 0, marginTop: 1,
+    transition: 'color 0.15s ease',
+  },
+  exampleText: {
+    fontSize: 13, color: '#6b7280', lineHeight: 1.5,
+    transition: 'color 0.15s ease',
+  },
+
+  scoringGuide: { display: 'flex', flexDirection: 'column', gap: 10 },
+  scoringRows: { display: 'flex', flexDirection: 'column', gap: 8 },
+  scoringRow: { display: 'flex', alignItems: 'center', gap: 12 },
+  scoreChip: {
+    fontSize: 12, fontWeight: 600, fontFamily: "'Inter', monospace",
+    padding: '3px 8px', borderRadius: 6, border: '1px solid',
+    minWidth: 32, textAlign: 'center', flexShrink: 0,
+  },
+  scoringDesc: { fontSize: 13, color: '#6b7280' },
+
+  brandInputWrap: { display: 'flex', gap: 8 },
   brandInput: {
-    flex: 1, background: '#111', border: '1px solid #1e1e1e',
-    borderRadius: 6, color: '#ddd', fontFamily: 'DM Mono, monospace',
-    fontSize: 13, padding: '9px 12px',
+    flex: 1, background: '#fafafa',
+    border: '1px solid #e5e7eb', borderRadius: 10,
+    color: '#111', fontSize: 14,
+    padding: '12px 16px',
+    fontFamily: "'Inter', sans-serif",
+    transition: 'border-color 0.15s ease',
   },
   addBtn: {
-    background: '#c8f545', border: 'none', color: '#0a0a0a',
-    width: 38, borderRadius: 6, fontSize: 22, cursor: 'pointer', fontWeight: 600,
+    width: 44, height: 44, borderRadius: 10,
+    border: 'none', color: '#fff',
+    fontSize: 20, fontWeight: 300, cursor: 'pointer',
+    flexShrink: 0, transition: 'all 0.2s ease',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 32 },
+
+  chips: {
+    display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 36,
+    alignItems: 'center',
+  },
+  noChips: { fontSize: 13, color: '#d1d5db' },
   chip: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    background: '#141414', border: '1px solid #222', borderRadius: 20,
-    padding: '4px 10px 4px 8px', fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#bbb',
+    display: 'inline-flex', alignItems: 'center', gap: 7,
+    background: '#f9fafb', border: '1px solid #e5e7eb',
+    borderRadius: 100, padding: '5px 10px 5px 6px',
+    fontSize: 13, color: '#374151',
+    transition: 'all 0.15s ease',
   },
   chipNum: {
-    background: '#c8f54522', color: '#c8f545', width: 16, height: 16,
-    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 9, fontWeight: 700,
+    width: 20, height: 20, borderRadius: '50%',
+    background: '#111', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 9, fontWeight: 700, flexShrink: 0,
   },
-  chipX: { background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 },
+  chipName: { fontWeight: 500 },
+  chipDel: {
+    background: 'none', border: 'none', color: '#d1d5db',
+    cursor: 'pointer', fontSize: 16, lineHeight: 1,
+    padding: '0 0 0 2px', transition: 'color 0.15s',
+  },
+
+  divider: { height: 1, background: '#f3f4f6' },
+
   error: {
-    marginTop: 12, padding: '10px 14px', background: '#150a0a',
-    border: '1px solid #3a1515', borderRadius: 6,
-    fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#f87171',
+    fontSize: 13, color: '#dc2626',
+    background: '#fef2f2', border: '1px solid #fecaca',
+    borderRadius: 8, padding: '10px 14px',
   },
-  analyzeBtn: {
-    marginTop: 20, width: '100%', padding: '14px',
-    background: '#c8f545', border: 'none', borderRadius: 6,
-    fontFamily: 'DM Mono, monospace', fontSize: 13, letterSpacing: '0.08em',
-    color: '#0a0a0a', fontWeight: 700, cursor: 'pointer',
+
+  runBtn: {
+    width: '100%', padding: '15px 24px',
+    border: 'none', borderRadius: 10,
+    fontSize: 14, fontWeight: 600,
+    letterSpacing: '-0.01em',
+    cursor: 'pointer',
+    transition: 'all 0.25s ease',
+    fontFamily: "'Inter', sans-serif",
   },
-  analyzeBtnLoading: { background: '#1a1a1a', color: '#444' },
-  spinnerWrap: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  loadingRow: {
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'center', gap: 10,
+  },
   spinner: {
-    width: 14, height: 14, border: '2px solid #333',
-    borderTopColor: '#666', borderRadius: '50%', display: 'inline-block',
-    animation: 'spin 0.7s linear infinite',
+    width: 14, height: 14,
+    border: '2px solid #e5e7eb',
+    borderTopColor: '#9ca3af',
+    borderRadius: '50%',
+    display: 'inline-block',
+    animation: 'spin 0.6s linear infinite',
   },
 
-  resultPanel: { background: '#0d0d0d', border: '1px solid #181818', borderRadius: 10, padding: 28, minHeight: 500 },
-  emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 320, gap: 16 },
-  emptyIcon: { fontSize: 40, color: '#222' },
-  emptyText: { fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#333', textAlign: 'center', lineHeight: 1.7 },
-  scoreLegend: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#333' },
-  legendDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', flexShrink: 0 },
+  empty: {
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    padding: '60px 0', gap: 16,
+  },
+  emptyCircle: {
+    width: 48, height: 48, borderRadius: '50%',
+    border: '1px solid #e5e7eb',
+  },
+  emptyLabel: { fontSize: 13, color: '#d1d5db', letterSpacing: '0.02em' },
 
-  resultQuestion: {
-    fontFamily: 'Fraunces, Georgia, serif', fontStyle: 'italic',
-    fontSize: 16, color: '#666', marginBottom: 24, lineHeight: 1.5,
-  },
-  scoresGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 },
-  scoreCard: { border: '1px solid #1a1a1a', borderRadius: 8, padding: 14 },
-  scoreCardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  rankNum: { fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#444' },
-  brandName: { fontFamily: 'Fraunces, Georgia, serif', fontSize: 15, fontWeight: 600, color: '#e0e0e0' },
-  sentimentTag: {
-    fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '0.1em',
-    padding: '3px 8px', borderRadius: 20,
-  },
-  context: {
-    marginTop: 8, fontFamily: 'Fraunces, Georgia, serif', fontStyle: 'italic',
-    fontSize: 11, color: '#555', lineHeight: 1.5,
-    borderLeft: '2px solid #1e1e1e', paddingLeft: 8,
-  },
-  answerBox: {
-    background: '#111', border: '1px solid #1a1a1a', borderRadius: 8,
-    padding: '20px 24px', fontFamily: 'Fraunces, Georgia, serif',
-    fontSize: 14, color: '#888', lineHeight: 1.8,
+  results: { display: 'flex', flexDirection: 'column', gap: 10 },
+  resultsTitle: { marginBottom: 6 },
+  resultsQ: {
+    fontFamily: "'Instrument Serif', Georgia, serif",
+    fontSize: 16, color: '#6b7280',
+    fontStyle: 'italic', marginTop: 4, lineHeight: 1.4,
   },
 
-  dashLayout: { maxWidth: 800, margin: '0 auto' },
-  dashCard: { background: '#0d0d0d', border: '1px solid #181818', borderRadius: 8, padding: '18px 22px', marginBottom: 10 },
-  dashCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 16 },
-  dashQuestion: { fontFamily: 'Fraunces, Georgia, serif', fontSize: 15, color: '#ccc', flex: 1 },
-  dashDate: { fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#333', flexShrink: 0 },
-  dashBrandRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  dashBrandChip: {
-    display: 'inline-flex', alignItems: 'center',
-    fontFamily: 'DM Mono, monospace', fontSize: 12,
-    background: '#111', border: '1px solid #1a1a1a', borderRadius: 20, padding: '4px 12px',
+  resultRow: {
+    display: 'flex', justifyContent: 'space-between',
+    alignItems: 'center',
+    border: '1px solid',
+    borderRadius: 10, padding: '14px 18px',
+    gap: 16, transition: 'all 0.2s ease',
+  },
+  resultLeft: { display: 'flex', alignItems: 'center', gap: 14, flex: 1 },
+  resultRank: {
+    fontSize: 11, color: '#d1d5db',
+    fontWeight: 600, minWidth: 24,
+    fontFamily: "'Inter', monospace",
+  },
+  resultBrand: { fontSize: 15, fontWeight: 600, color: '#111', letterSpacing: '-0.01em' },
+  resultCtx: {
+    fontSize: 12, color: '#6b7280', marginTop: 3,
+    fontStyle: 'italic', lineHeight: 1.4,
+  },
+  resultRight: {
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'flex-end', gap: 4, flexShrink: 0,
+  },
+  scorePill: {
+    fontSize: 18, fontWeight: 700,
+    padding: '4px 12px', borderRadius: 8,
+    letterSpacing: '-0.02em',
+    fontFamily: "'Instrument Serif', Georgia, serif",
+  },
+  scoreDenom: { fontSize: 11, fontWeight: 400, opacity: 0.6 },
+  badge: {
+    fontSize: 10, fontWeight: 600,
+    letterSpacing: '0.08em', textTransform: 'uppercase',
+  },
+
+  answerDetails: {
+    border: '1px solid #f3f4f6', borderRadius: 10,
+    overflow: 'hidden', marginTop: 8,
+  },
+  answerSummary: {
+    padding: '12px 18px',
+    fontSize: 12, fontWeight: 500, color: '#9ca3af',
+    letterSpacing: '0.02em',
+    background: '#fafafa',
+    transition: 'background 0.15s ease',
+  },
+  answerBody: {
+    padding: '18px',
+    fontSize: 14, color: '#4b5563', lineHeight: 1.8,
+    borderTop: '1px solid #f3f4f6',
+  },
+
+  // Dashboard
+  dashWrap: { maxWidth: 760, margin: '0 auto' },
+  dashTop: {
+    display: 'flex', justifyContent: 'space-between',
+    alignItems: 'flex-start', marginBottom: 48,
   },
   refreshBtn: {
-    fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.05em',
-    background: '#111', border: '1px solid #1e1e1e', color: '#555',
-    padding: '7px 14px', borderRadius: 4, cursor: 'pointer',
+    fontSize: 13, fontWeight: 500,
+    background: '#f9fafb', border: '1px solid #e5e7eb',
+    color: '#6b7280', padding: '9px 16px', borderRadius: 8,
+    cursor: 'pointer', transition: 'all 0.15s ease',
+    fontFamily: "'Inter', sans-serif",
+  },
+  dashList: { display: 'flex', flexDirection: 'column', gap: 12 },
+  dashCard: {
+    border: '1px solid #f0f0f0', borderRadius: 12,
+    padding: '20px 24px', background: '#fff',
+    transition: 'border-color 0.15s ease',
+  },
+  dashCardTop: {
+    display: 'flex', justifyContent: 'space-between',
+    alignItems: 'flex-start', gap: 16, marginBottom: 14,
+  },
+  dashQ: {
+    fontSize: 15, color: '#111', lineHeight: 1.4,
+    fontWeight: 500, flex: 1,
+    fontFamily: "'Instrument Serif', Georgia, serif",
+  },
+  dashDate: { fontSize: 12, color: '#9ca3af', flexShrink: 0, fontWeight: 400 },
+  dashChips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  dashChip: {
+    display: 'inline-flex', alignItems: 'center', gap: 7,
+    border: '1px solid', borderRadius: 100,
+    padding: '4px 10px', fontSize: 12,
+    fontWeight: 500,
   },
 };
