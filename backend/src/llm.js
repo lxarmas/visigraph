@@ -39,6 +39,7 @@ Brands to analyze: ${brandList}`
   });
 
   const fullText = response.choices[0].message.content;
+  console.log('RAW LLM OUTPUT:', fullText);
   const parts = fullText.split('---BRAND_ANALYSIS---');
   const answerText = parts[0].trim();
   const analysisBlock = parts[1]?.split('---END_ANALYSIS---')[0]?.trim() || '';
