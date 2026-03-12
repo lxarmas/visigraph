@@ -49,24 +49,20 @@ export async function saveAnalysis({ questionId, questionText, answerText, brand
   const timestamp = new Date().toISOString();
 
   try {
-    // Merge Question node
     await session.run(
       `MERGE (q:Question {id: $questionId})
        ON CREATE SET q.text = $questionText, q.createdAt = $timestamp
-       ON MATCH SET q.lastAskedAt = $timestamp, q.askCount = coalesce(q.askCount, 0) + 1`,
+       ON MATCH SET q.lastAskedAt = $timestamp`,
       { questionId, questionText, timestamp }
     );
 
-    // Create Answer node
     await session.run(
-      `CREATE (a:Answer {id: $answerId, text: $answerText, createdAt: $timestamp})
-       WITH a
-       MATCH (q:Question {id: $questionId})
+      `MATCH (q:Question {id: $questionId})
+       CREATE (a:Answer {id: $answerId, text: $answerText, createdAt: $timestamp})
        CREATE (q)-[:HAS_ANSWER]->(a)`,
-      { answerId, answerText, timestamp }
+      { questionId, answerId, answerText, timestamp }
     );
 
-    // For each brand: merge Brand node + create relationship to Answer
     for (const result of brandResults) {
       const { brand, mentioned, sentiment, context } = result;
       const relType = mentioned ? 'MENTIONED' : 'NOT_MENTIONED';
@@ -75,23 +71,9 @@ export async function saveAnalysis({ questionId, questionText, answerText, brand
         `MERGE (b:Brand {name: $brand})
          WITH b
          MATCH (a:Answer {id: $answerId})
-         CREATE (a)-[r:${relType} {sentiment: $sentiment, context: $context, createdAt: $timestamp}]->(b)`,
-        { brand, sentiment: sentiment || 'neutral', context: context || '', timestamp }
+         CREATE (a)-[:${relType} {sentiment: $sentiment, context: $context, createdAt: $timestamp}]->(b)`,
+        { brand, sentiment: sentiment || 'neutral', context: context || '', answerId, timestamp }
       );
-    }
-
-    // Create COMPARED_TO relationships between brands that are both mentioned
-    const mentionedBrands = brandResults.filter(r => r.mentioned).map(r => r.brand);
-    if (mentionedBrands.length > 1) {
-      for (let i = 0; i < mentionedBrands.length; i++) {
-        for (let j = i + 1; j < mentionedBrands.length; j++) {
-          await session.run(
-            `MATCH (b1:Brand {name: $brand1}), (b2:Brand {name: $brand2})
-             MERGE (b1)-[:COMPARED_TO {questionId: $questionId}]-(b2)`,
-            { brand1: mentionedBrands[i], brand2: mentionedBrands[j], questionId }
-          );
-        }
-      }
     }
 
     return { questionId, answerId };
