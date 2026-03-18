@@ -402,6 +402,10 @@ export default function App() {
         }
         .example-row:hover span:last-child { color: #111 !important; }
         .example-row:hover span:first-child { color: #111 !important; }
+        @media (max-width: 640px) {
+  h1 { font-size: 28px !important; }
+  .two-col { grid-template-columns: 1fr !important; gap: 32px !important; }
+}
       `}</style>
     </div>
   );
@@ -420,9 +424,9 @@ const s = {
     background: '#fff',
     position: 'sticky', top: 0, zIndex: 100,
   },
-  headerInner: {
+headerInner: {
     maxWidth: 1200, margin: '0 auto',
-    padding: '0 48px',
+    padding: '0 clamp(16px, 4vw, 48px)',
     height: 64,
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
@@ -456,9 +460,9 @@ const s = {
     opacity: 0.06,
   },
 
-  main: {
+ main: {
     maxWidth: 1200, margin: '0 auto',
-    padding: '64px 48px 120px',
+    padding: 'clamp(24px, 5vw, 64px) clamp(16px, 4vw, 48px) 80px',
   },
 
   pageTitle: { marginBottom: 56 },
@@ -472,11 +476,10 @@ const s = {
     fontSize: 15, color: '#6b7280', lineHeight: 1.6,
     fontWeight: 400, maxWidth: 520,
   },
-
-  twoCol: {
+twoCol: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 80,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: 48,
     alignItems: 'start',
   },
 

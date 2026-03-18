@@ -1,140 +1,115 @@
-# AI Visibility Tracker
+# Visigraph
 
-> _"Where does your brand appear when an AI answers a question about your market?"_
+**AI Brand Visibility Tracker** — see how your brand appears when an AI answers questions about your market.
 
-A full-stack prototype that wires an LLM, a Node.js API, a React frontend, and Neo4j into an **AI visibility measurement workflow** — built as a 3-day proof of concept.
+🔗 **Live demo:** [visigraph.vercel.app](https://visigraph.vercel.app)
 
 ---
 
-## What It Does
+## The Problem
 
-When a user types a competitive question like _"What is the best project management software for remote teams?"_ and selects brands to track (e.g., Notion, Asana, Linear):
+Traditional SEO tracks where your brand ranks in search results. But as AI assistants replace search for buying decisions, a new question emerges:
 
-1. The backend calls **GPT-4o-mini** with the question
-2. It parses the LLM's answer to detect whether each brand was **mentioned**, and if so, with what **sentiment** (positive / neutral / negative)
-3. Results are stored in **Neo4j** as a graph: `Question → Answer → Brand` nodes with `MENTIONED`, `NOT_MENTIONED`, and `COMPARED_TO` relationships
-4. The frontend shows a live **visibility score** (0–10) per brand and a dashboard of historical queries
+> *"When someone asks an AI about your category — does your brand even get mentioned?"*
+
+Visigraph measures that. Ask any competitive question, track up to six brands, and see who the AI recommends, who gets ignored, and with what sentiment.
+
+---
+
+## How It Works
+
+1. **Ask a question** — e.g. *"What are the best CRM tools for B2B sales?"*
+2. **Add brands to track** — e.g. Salesforce, HubSpot, Pipedrive
+3. **Run analysis** — the AI answers the question naturally
+4. **See visibility scores** — each brand is scored 0–10 based on whether it was mentioned and with what sentiment
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────┐    POST /api/analyze     ┌──────────────────┐
-│  React UI   │ ──────────────────────→  │  Node.js API      │
-│  (Vite)     │ ←──────────────────────  │  (Express)        │
-└─────────────┘    JSON: scores + answer └────────┬─────────┘
-                                                  │
-                             ┌────────────────────┼────────────────────┐
-                             │                    │                    │
-                      ┌──────▼──────┐    ┌────────▼──────┐   ┌────────▼──────┐
-                      │   OpenAI    │    │    Neo4j       │   │  LLM Parser   │
-                      │  GPT-4o-mini│    │  Graph DB      │   │  (regex+parse)│
-                      └─────────────┘    └───────────────┘   └───────────────┘
+┌─────────────────────┐        ┌──────────────────────┐
+│   React (Vite)      │  HTTP  │   Node.js (Express)  │
+│   Vercel            │ ──────▶│   Render             │
+│ visigraph.vercel.app│        │ visigraph-api.onrender│
+└─────────────────────┘        └──────────┬───────────┘
+                                          │
+                         ┌────────────────┼────────────────┐
+                         │                                  │
+                 ┌───────▼──────┐                 ┌────────▼──────┐
+                 │  Groq API    │                 │  Neo4j Aura   │
+                 │  LLaMA 3.3   │                 │  Graph DB     │
+                 └──────────────┘                 └───────────────┘
 ```
-
-### Node Graph Model (Neo4j)
-
-```
-(:Question {id, text, createdAt})
-    -[:HAS_ANSWER]->
-(:Answer {id, text, createdAt})
-    -[:MENTIONED {sentiment, context}]->  (:Brand {name})
-    -[:NOT_MENTIONED]->                   (:Brand {name})
-
-(:Brand)-[:COMPARED_TO {questionId}]-(:Brand)   // when both are mentioned in same answer
-```
-
-### Visibility Score (0–10)
-
-| Condition               | Score |
-|-------------------------|-------|
-| Not mentioned           | 0     |
-| Mentioned + negative    | 1     |
-| Mentioned + neutral     | 7     |
-| Mentioned + positive    | 10    |
 
 ---
 
-## Why This Matters for AI Visibility
+## Neo4j Graph Model
 
-Traditional SEO tracks _search engine ranking_. As AI assistants replace search for buying decisions, the new question is: **does the model even mention your brand when someone asks about your category?**
+Every analysis creates a graph of nodes and relationships:
 
-This prototype measures:
-- **Presence** — was the brand mentioned at all?
-- **Sentiment** — was the mention framed positively or negatively?
-- **Co-occurrence** — which brands are compared together? (COMPARED_TO graph edges)
-- **Trend** — does visibility change across different phrasings or over time?
+```
+(:Question)-[:HAS_ANSWER]->(:Answer)-[:MENTIONED {sentiment, context}]->(:Brand)
+                                    -[:NOT_MENTIONED]->(:Brand)
 
-A real product built on this foundation could track dozens of brands across hundreds of prompt variations, automatically detect when LLM behavior changes after a model update, and correlate AI visibility with pipeline metrics.
+(:Brand)-[:COMPARED_TO {questionId}]-(:Brand)
+```
+
+**Why a graph database?**
+The core insight lives in the *relationships* — not the data itself. Neo4j lets us ask powerful questions like:
+
+- Which brands are always mentioned together?
+- Which competitor does the AI recommend instead of my brand?
+- How has brand X's visibility changed across different question phrasings?
+
+These queries are one line in Cypher. In SQL they'd require multiple joins.
+
+---
+
+## Visibility Scoring
+
+| Score | Meaning |
+|-------|---------|
+| 10 | Mentioned with positive sentiment |
+| 7 | Mentioned with neutral sentiment |
+| 1 | Mentioned with negative sentiment |
+| 0 | Not mentioned at all |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Frontend | React + Vite | Fast dev experience, component model |
+| Backend | Node.js + Express | Lightweight, great SDK support |
+| LLM | Groq (LLaMA 3.3 70B) | Fast inference, generous free tier |
+| Database | Neo4j Aura | Natural fit for relationship-heavy data |
+| Frontend deploy | Vercel | Zero-config React deployment |
+| Backend deploy | Render | Simple Node.js hosting, free tier |
 
 ---
 
 ## Project Structure
 
 ```
-ai-visibility/
+visigraph/
 ├── backend/
 │   ├── src/
-│   │   ├── index.js        # Express server + Neo4j init
-│   │   ├── routes.js       # POST /analyze, GET /dashboard
-│   │   ├── llm.js          # OpenAI call + brand/sentiment parser
-│   │   └── db.js           # Neo4j driver + graph write/read
+│   │   ├── index.js      # Express server + Neo4j init
+│   │   ├── routes.js     # POST /analyze, GET /dashboard
+│   │   ├── llm.js        # Groq API call + brand/sentiment parser
+│   │   └── db.js         # Neo4j driver + graph read/write
 │   ├── .env.example
 │   └── package.json
 └── frontend/
     ├── src/
-    │   ├── main.jsx        # React entry
-    │   └── App.jsx         # Full UI (analyze + dashboard views)
+    │   ├── App.jsx       # Full UI — analyze + dashboard views
+    │   └── main.jsx      # React entry point
     ├── index.html
     ├── vite.config.js
     └── package.json
 ```
-
----
-
-## Setup & Running
-
-### Prerequisites
-
-- Node.js 18+
-- Neo4j (local via [Neo4j Desktop](https://neo4j.com/download/) or free cloud via [Aura](https://neo4j.com/cloud/platform/aura-graph-database/))
-- OpenAI API key
-
-### 1. Backend
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Edit .env with your OpenAI key and Neo4j credentials
-npm run dev
-```
-
-Server starts at `http://localhost:3001`
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-UI starts at `http://localhost:5173` (proxies `/api` to port 3001)
-
-### 3. Neo4j
-
-**Option A — Local:**
-1. Download Neo4j Desktop
-2. Create a new project/database
-3. Set a password and copy it to `.env`
-4. Default URI: `bolt://localhost:7687`
-
-**Option B — Aura (cloud, free tier):**
-1. Sign up at [console.neo4j.io](https://console.neo4j.io)
-2. Create a free instance
-3. Copy the connection URI and credentials to `.env`
 
 ---
 
@@ -144,8 +119,8 @@ UI starts at `http://localhost:5173` (proxies `/api` to port 3001)
 
 ```json
 {
-  "question": "What is the best project management software?",
-  "brands": ["Notion", "Asana", "Linear"]
+  "question": "What are the best CRM tools for B2B sales?",
+  "brands": ["Salesforce", "HubSpot", "Pipedrive"]
 }
 ```
 
@@ -154,56 +129,78 @@ UI starts at `http://localhost:5173` (proxies `/api` to port 3001)
 {
   "questionId": "q_1234_abc",
   "question": "...",
-  "answerText": "When evaluating project management tools...",
+  "answerText": "When evaluating CRM tools...",
   "brandResults": [
-    { "brand": "Notion", "mentioned": true, "sentiment": "positive", "context": "...", "score": 10 },
-    { "brand": "Asana", "mentioned": true, "sentiment": "neutral", "context": "...", "score": 7 },
-    { "brand": "Linear", "mentioned": false, "sentiment": "neutral", "context": "", "score": 0 }
+    { "brand": "Salesforce", "mentioned": true, "sentiment": "positive", "score": 10 },
+    { "brand": "HubSpot",    "mentioned": true, "sentiment": "neutral",  "score": 7  },
+    { "brand": "Pipedrive",  "mentioned": false, "sentiment": "neutral", "score": 0  }
   ]
 }
 ```
 
 ### `GET /api/dashboard`
 
-Returns all past questions with brand mention data from Neo4j.
+Returns all past analyses with brand mention data from Neo4j.
+
+### `GET /api/health`
+
+Returns `{ "status": "ok" }` — used to verify the backend is running.
 
 ---
 
-## Tech Stack
+## Local Setup
 
-| Layer      | Technology             | Why                                           |
-|------------|------------------------|-----------------------------------------------|
-| Frontend   | React + Vite           | Fast DX, component model, easy state mgmt     |
-| Backend    | Node.js + Express      | Lightweight, great OpenAI/Neo4j SDK support   |
-| LLM        | OpenAI GPT-4o-mini     | Cost-effective, strong instruction following  |
-| Graph DB   | Neo4j                  | Natural fit for brand relationship graph       |
+### Prerequisites
+- Node.js 18+
+- Neo4j Aura account (free tier) — [console.neo4j.io](https://console.neo4j.io)
+- Groq API key (free) — [console.groq.com](https://console.groq.com)
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/lxarmas/visigraph.git
+cd visigraph
+```
+
+### 2. Backend
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Fill in your keys in .env
+npm run dev
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173)
+
+### Environment Variables
+
+**`backend/.env`**
+```
+GROQ_API_KEY=your_groq_api_key
+NEO4J_URI=neo4j+s://xxxxxxxx.databases.neo4j.io
+NEO4J_USER=your_instance_id
+NEO4J_PASSWORD=your_password
+PORT=3001
+```
 
 ---
 
-## Day-by-Day Build Plan
+## What I'd Build Next
 
-**Day 1 — Data Layer**
-- Define Neo4j schema: Question, Answer, Brand nodes + relationships
-- Stand up Neo4j (local or Aura)
-- Write `db.js` with `saveAnalysis()` and `loadDashboard()` queries
-- Hard-code 2–3 sample questions and verify round-trip read/write
-
-**Day 2 — LLM Integration + UI**
-- Implement `llm.js`: OpenAI call with structured prompt, brand/sentiment parser
-- Build `/api/analyze` endpoint wiring LLM → parser → Neo4j
-- Build React frontend: question input, brand chips, score table
-
-**Day 3 — Polish**
-- Loading states, error handling
-- Dashboard view with historical queries
-- Seed 5 example questions
-- Write this README
+- **Multi-model comparison** — run the same question through GPT-4o, Claude, and Gemini. Compare which brands each model favors.
+- **Scheduled tracking** — run queries daily and track visibility score trends over time in Neo4j
+- **Prompt variations** — automatically rephrase the same question 5 different ways and average the scores
+- **Graph analytics** — use Neo4j's graph algorithms to find the most "central" brands across all queries
 
 ---
 
-## Extending This
+## Why This Matters
 
-- **Prompt variations**: Run the same question through 5 different phrasings — does brand visibility change?
-- **Model comparison**: Run the same query across GPT-4o, Claude, Gemini — compare which brands each model favors
-- **Time series**: Schedule daily queries, track visibility score trends in Neo4j over weeks
-- **Graph queries**: Use Cypher to find "which brands are always mentioned together?" or "which brand has the highest positive-to-negative ratio?"
+As AI assistants become the primary discovery layer for purchasing decisions, brand visibility in AI responses is the next frontier of marketing analytics. Visigraph is a proof of concept for that measurement layer.
