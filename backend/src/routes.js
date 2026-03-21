@@ -10,17 +10,19 @@ router.post('/analyze', async (req, res) => {
   try {
     const { question, brands } = req.body;
 
-    if (!question || !brands || !Array.isArray(brands) || brands.length === 0) {
-      return res.status(400).json({ error: 'question and brands[] are required' });
-    }
+if (!question) {
+  return res.status(400).json({ error: 'question is required' });
+}
+
+// Default to empty array if no brands provided — model will suggest them
+const brandList = brands && Array.isArray(brands) ? brands : [];
 
     if (brands.length > 6) {
       return res.status(400).json({ error: 'Maximum 6 brands per query' });
     }
 
     // Call LLM
-    const { answerText, brandResults } = await analyzeQuestion(question, brands);
-
+   const { answerText, brandResults, suggestedBrands } = await analyzeQuestion(question, brandList);
     // Enrich with scores
     const scored = computeVisibilityScore(brandResults);
 
@@ -38,7 +40,8 @@ router.post('/analyze', async (req, res) => {
       questionId,
       question,
       answerText,
-      brandResults: scored
+      brandResults: scored,
+      suggestedBrands
     });
   } catch (err) {
     console.error('Analyze error:', err);

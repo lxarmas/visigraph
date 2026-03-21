@@ -10,6 +10,11 @@ function getClient() {
 }
 
 export async function analyzeQuestion(question, brands) {
+  // If no brands provided, ask the model to suggest them first
+  if (!brands || brands.length === 0) {
+    brands = await suggestBrands(question);
+  }
+
   const brandList = brands.join(', ');
 
   const response = await getClient().chat.completions.create({
@@ -40,12 +45,43 @@ Brands to analyze: ${brandList}`
 
   const fullText = response.choices[0].message.content;
   console.log('RAW LLM OUTPUT:', fullText);
+
   const parts = fullText.split('---BRAND_ANALYSIS---');
   const answerText = parts[0].trim();
   const analysisBlock = parts[1]?.split('---END_ANALYSIS---')[0]?.trim() || '';
   const brandResults = parseBrandAnalysis(analysisBlock, brands);
 
-  return { answerText, brandResults };
+  // Return suggested brands so frontend can display them
+  return { answerText, brandResults, suggestedBrands: brands };
+}
+
+// New function — asks the model to suggest relevant brands
+async function suggestBrands(question) {
+  const response = await getClient().chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 200,
+    messages: [
+      {
+        role: 'system',
+        content: `You are a market research expert. When given a question, suggest the 6 most relevant brand names to track. Return ONLY a JSON array of brand name strings. No explanation, no markdown, just the array.`
+      },
+      {
+        role: 'user',
+        content: `Question: "${question}"
+        
+Return exactly 6 brand names as a JSON array like: ["Brand1", "Brand2", "Brand3", "Brand4", "Brand5", "Brand6"]`
+      }
+    ]
+  });
+
+  try {
+    const text = response.choices[0].message.content.trim();
+    const parsed = JSON.parse(text);
+    return parsed.slice(0, 6);
+  } catch (e) {
+    console.error('Failed to parse suggested brands:', e);
+    return [];
+  }
 }
 
 function parseBrandAnalysis(analysisBlock, brands) {
