@@ -2,15 +2,25 @@ import neo4j from 'neo4j-driver';
 
 let driver;
 
+function createDriver() {
+  return neo4j.driver(
+    process.env.NEO4J_URI || 'bolt://localhost:7687',
+    neo4j.auth.basic(
+      process.env.NEO4J_USER || 'neo4j',
+      process.env.NEO4J_PASSWORD || 'password'
+    ),
+    {
+      maxConnectionLifetime: 3 * 60 * 60 * 1000,   // 3 hours
+      maxConnectionPoolSize: 50,
+      connectionAcquisitionTimeout: 10_000,
+      connectionLivenessCheckTimeout: 1_000,         // ✅ detect stale connections fast
+    }
+  );
+}
+
 export function getDriver() {
   if (!driver) {
-    driver = neo4j.driver(
-      process.env.NEO4J_URI || 'bolt://localhost:7687',
-      neo4j.auth.basic(
-        process.env.NEO4J_USER || 'neo4j',
-        process.env.NEO4J_PASSWORD || 'password'
-      )
-    );
+    driver = createDriver();
   }
   return driver;
 }
@@ -23,20 +33,46 @@ export async function closeDriver() {
 }
 
 /**
+ * Runs a function with a Neo4j session, auto-reconnecting if the
+ * routing table has expired (the "No routing servers available" error).
+ */
+async function withSession(fn) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const session = getDriver().session();
+      try {
+        return await fn(session);
+      } finally {
+        await session.close();
+      }
+    } catch (err) {
+      const isStale =
+        err.message?.includes('No routing servers available') ||
+        err.message?.includes('Could not perform discovery') ||
+        err.code === 'ServiceUnavailable';
+
+      if (isStale && attempt < 2) {
+        console.warn(`Neo4j routing stale, reconnecting (attempt ${attempt + 1})…`);
+        await closeDriver();           // tear down dead driver
+        driver = createDriver();       // fresh driver with new routing table
+        await driver.verifyConnectivity();
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/**
  * Initialize schema constraints
  */
 export async function initSchema() {
-  const session = getDriver().session();
-  try {
+  await withSession(async (session) => {
     await session.run(`CREATE CONSTRAINT question_id IF NOT EXISTS FOR (q:Question) REQUIRE q.id IS UNIQUE`);
     await session.run(`CREATE CONSTRAINT brand_name IF NOT EXISTS FOR (b:Brand) REQUIRE b.name IS UNIQUE`);
     await session.run(`CREATE CONSTRAINT answer_id IF NOT EXISTS FOR (a:Answer) REQUIRE a.id IS UNIQUE`);
     console.log('✅ Neo4j schema initialized');
-  } catch (err) {
-    console.warn('Schema init warning:', err.message);
-  } finally {
-    await session.close();
-  }
+  }).catch(err => console.warn('Schema init warning:', err.message));
 }
 
 /**
@@ -44,11 +80,10 @@ export async function initSchema() {
  * Creates: Question → Answer → Brand nodes + relationships
  */
 export async function saveAnalysis({ questionId, questionText, answerText, brands, brandResults }) {
-  const session = getDriver().session();
-  const answerId = `answer_${Date.now()}`;
-  const timestamp = new Date().toISOString();
+  return withSession(async (session) => {
+    const answerId = `answer_${Date.now()}`;
+    const timestamp = new Date().toISOString();
 
-  try {
     await session.run(
       `MERGE (q:Question {id: $questionId})
        ON CREATE SET q.text = $questionText, q.createdAt = $timestamp
@@ -77,17 +112,14 @@ export async function saveAnalysis({ questionId, questionText, answerText, brand
     }
 
     return { questionId, answerId };
-  } finally {
-    await session.close();
-  }
+  });
 }
 
 /**
  * Load all past questions with aggregated brand scores
  */
 export async function loadDashboard() {
-  const session = getDriver().session();
-  try {
+  return withSession(async (session) => {
     const result = await session.run(`
       MATCH (q:Question)-[:HAS_ANSWER]->(a:Answer)
       OPTIONAL MATCH (a)-[rel]->(b:Brand)
@@ -104,7 +136,6 @@ export async function loadDashboard() {
       ORDER BY a.createdAt DESC
     `);
 
-    // Group by question
     const questionsMap = new Map();
     for (const record of result.records) {
       const qId = record.get('questionId');
@@ -133,7 +164,5 @@ export async function loadDashboard() {
     }
 
     return Array.from(questionsMap.values());
-  } finally {
-    await session.close();
-  }
+  });
 }
