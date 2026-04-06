@@ -45,8 +45,8 @@ const SENTIMENT_BORDER = {
 };
 
 const EXAMPLE_QUESTIONS = [
-  { q: 'What are the best running shoe brands?',          category: 'Sports'       },
-  { q: 'Which CRM is best for B2B sales teams?',          category: 'Software'     },
+  { q: 'best italian restaurant in Los Angeles ?',        category: 'Food'       },
+  { q: 'best shoes to run long distances?',               category: 'Sports'     },
   { q: 'Top cloud storage solutions for enterprises?',    category: 'Tech'         },
   { q: 'Best project management tools for remote teams?', category: 'Productivity' },
   { q: 'Which electric car brand leads in innovation?',   category: 'Automotive'   },
@@ -54,10 +54,10 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 const SCORING_STEPS = [
-  { score: 10, label: 'Positive', desc: 'Mentioned favorably',    color: COLORS.purple600, bg: COLORS.purple50,  border: COLORS.purple200, example: '"Nike is widely regarded as the gold standard for performance running."' },
-  { score: 7,  label: 'Neutral',  desc: 'Mentioned without bias', color: COLORS.teal600,   bg: COLORS.teal50,    border: COLORS.teal200,   example: '"Adidas is one of several options worth considering."' },
-  { score: 1,  label: 'Negative', desc: 'Mentioned critically',   color: COLORS.coral600,  bg: COLORS.coral50,   border: '#F0997B',        example: '"Some users have reported durability concerns with this brand."' },
-  { score: 0,  label: 'Absent',   desc: 'Not mentioned at all',   color: COLORS.gray400,   bg: COLORS.gray50,    border: COLORS.gray100,   example: 'The brand name never appeared anywhere in the AI answer.' },
+  { score: 10, label: 'Positive', desc: 'Is a good deal, get it!',    color: COLORS.purple600, bg: COLORS.purple50,  border: COLORS.purple200, example: 'we found a great deal on Nike running shoes!' },
+  { score: 7,  label: 'Neutral',  desc: 'if you are not in a rush keep looking', color: COLORS.teal600,   bg: COLORS.teal50,    border: COLORS.teal200,   example: 'This is an okay option, but there are better deals out there' },
+  { score: 1,  label: 'Negative', desc: 'I will not get this deal, you can do better',   color: COLORS.coral600,  bg: COLORS.coral50,   border: '#F0997B',        example:'This item is overpriced, you can find a better deal' },
+  { score: 0,  label: 'Absent',   desc: 'No one has heard of this name, keep looking ',   color: COLORS.gray400,   bg: COLORS.gray50,    border: COLORS.gray100,   example: 'no reiews on this name, sorry' },
 ];
 
 function highlightBrands(text, brandResults) {
@@ -172,8 +172,18 @@ export default function App() {
         {view === 'analyze' && (
           <>
             <div style={s.pageTitle}>
-              <h1 style={s.h1}>Brand Visibility Analysis</h1>
-              <p style={s.subtitle}>Ask any market question. Track up to six brands. See who the AI recommends — and who gets overlooked.</p>
+             <h1 style={{
+  fontSize: 'clamp(3rem, 8vw, 6rem)', // Responsive oversized text
+  fontFamily: '"Editorial New", serif', // High-contrast serif
+  letterSpacing: '-0.02em', 
+  lineHeight: '1.1',
+  textTransform: 'uppercase',
+  color: '#1a1a1a',
+  marginBottom: '0.5rem'
+}}>
+  Best Values <span style={{ fontStyle: 'italic', fontWeight: '300' }}>always.</span>
+</h1>
+              <p style={s.subtitle}>Ask any question you want to buy, we will find you the best deal!.</p>
             </div>
 
             <div style={s.twoCol}>
