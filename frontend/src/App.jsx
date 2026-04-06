@@ -54,10 +54,11 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 const SCORING_STEPS = [
-  { score: 10, label: 'Positive', desc: 'Is a good deal, get it!',    color: COLORS.purple600, bg: COLORS.purple50,  border: COLORS.purple200, example: 'we found a great deal on Nike running shoes!' },
-  { score: 7,  label: 'Neutral',  desc: 'if you are not in a rush keep looking', color: COLORS.teal600,   bg: COLORS.teal50,    border: COLORS.teal200,   example: 'This is an okay option, but there are better deals out there' },
-  { score: 1,  label: 'Negative', desc: 'I will not get this deal, you can do better',   color: COLORS.coral600,  bg: COLORS.coral50,   border: '#F0997B',        example:'This item is overpriced, you can find a better deal' },
-  { score: 0,  label: 'Absent',   desc: 'No one has heard of this name, keep looking ',   color: COLORS.gray400,   bg: COLORS.gray50,    border: COLORS.gray100,   example: 'no reiews on this name, sorry' },
+  { score: '9–10', label: 'Top pick',                  desc: 'AI strongly recommends this brand first',          color: COLORS.purple800, bg: COLORS.purple50,  border: COLORS.purple200, example: '"Nike is the top choice for long-distance running shoes."' },
+  { score: '6–8',  label: 'Mentioned positively',      desc: 'Solid option, not the #1 recommendation',          color: COLORS.teal800,   bg: COLORS.teal50,    border: COLORS.teal200,   example: '"Adidas is also a strong contender with good cushioning."' },
+  { score: '3–5',  label: 'Mentioned with caveats',    desc: 'Brought up, but with drawbacks noted',             color: '#633806',        bg: '#FAEEDA',        border: '#EF9F27',        example: '"New Balance works, though sizing can be inconsistent."' },
+  { score: '1–2',  label: 'Barely mentioned / negative', desc: 'Only referenced critically or as what to avoid', color: COLORS.coral600,  bg: COLORS.coral50,   border: '#F0997B',        example: '"Some runners have reported durability issues here."' },
+  { score: 0,      label: 'Not mentioned',              desc: 'AI gave no visibility to this brand at all',       color: COLORS.gray400,   bg: COLORS.gray50,    border: COLORS.gray100,   example: '"No mention of this brand in the AI\'s answer."' },
 ];
 
 function highlightBrands(text, brandResults) {
